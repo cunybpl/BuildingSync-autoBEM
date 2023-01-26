@@ -55,7 +55,8 @@ module BuildingSync
     # @param epw_file_path [String] if provided, full/path/to/my.epw
     # @param standard_to_be_used [String]
     # @param validate_xml_file_against_schema [Boolean]
-    def initialize(xml_file_path, output_dir, epw_file_path = nil, standard_to_be_used = ASHRAE90_1, validate_xml_file_against_schema = true)
+    ### Made validate_xml_file_against_schema false by default
+    def initialize(xml_file_path, output_dir, epw_file_path = nil, standard_to_be_used = ASHRAE90_1, validate_xml_file_against_schema = false)
       @schema_version = nil
       @xml_file_path = xml_file_path
       @output_dir = output_dir

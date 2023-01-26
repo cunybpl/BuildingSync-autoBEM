@@ -98,5 +98,16 @@ module BuildingSync
       # set ground temperatures from DOE prototype buildings
       standard.model_add_ground_temperatures(model, primary_bldg_type, climate_zone)
     end
+
+
+    ### This function will maintain that openstudio-standards is used to create & assign the default constructions
+    ### and will add other properties e.g. Insulation R Values according to defined objects of 
+    ### BuildingSync::WallSystemType + BuildingSync::RoofSystemType + BuildingSync::Fenestration
+
+    ### I think this will work by taking in BuildingSyc::BuildingSection & read the refs of its linked constructions
+    ### & then create them as BuildingSync objs & then use their attrs as arguments for OS SDK functions
+    def modify(model,section)
+    end
+
   end
 end

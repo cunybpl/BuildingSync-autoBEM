@@ -40,15 +40,15 @@
 module BuildingSync
   # Roof System Type
   class RoofSystemType
-    # initialize a specific floor system type given a ref
+    # initialize a specific roof system type given a ref
     # @param doc [REXML::Document]
     # @param ns [String]
     # @param ref [String]
     def initialize(doc, ns, ref)
       @id = nil
-      doc.elements.each("#{ns}:Systems/#{ns}:RoofSystems/#{ns}:RoofSystem") do |roof_system|
+      XPath.match(doc.root,"//#{ns}:RoofSystem").each do |roof_system|
         if roof_system.attributes['ID'] == ref
-          read(roof_system, ns)
+          self.read(roof_system, ns)
         end
       end
     end
@@ -57,8 +57,24 @@ module BuildingSync
     # @param roof_system [REXML:Element]
     # @param ns [String]
     def read(roof_system, ns)
-      # ID
+
       @id = roof_system.attributes['ID'] if roof_system.attributes['ID']
+      
+      xmlroofInsulationRValue = XPath.first(roof_system,".//#{ns}:RoofInsulationRValue")
+      xmlroofConstruction = XPath.first(roof_system,".//#{ns}:RoofConstruction")
+      xmldeckType = XPath.first(roof_system,".//#{ns}:DeckType")
+      xmlblueRoof = XPath.first(roof_system,".//#{ns}:BlueRoof")
+      xmlgreenRoof = XPath.first(roof_system,".//#{ns}:GreenRoof")
+      xmlcoolRoof = XPath.first(roof_system,".//#{ns}:CoolRoof")
+      
+      @roofInsulationRValue = help_get_text_value_as_float(xmlroofInsulationRValue) unless xmlroofInsulationRValue.nil?
+      @roofConstruction = help_get_text_value(xmlroofConstruction) unless xmlroofConstruction.nil?
+      @deckType = help_get_text_value(xmldeckType) unless xmldeckType.nil?
+      @blueRoof = help_get_text_value_as_bool(xmlblueRoof) unless xmlblueRoof.nil?
+      @greenRoof = help_get_text_value_as_bool(xmlgreenRoof) unless xmlgreenRoof.nil?
+      @coolRoof = help_get_text_value_as_bool(xmlcoolRoof) unless xmlcoolRoof.nil?
     end
+    
+    attr_reader :id, :roofInsulationRValue, :roofConstruction, :deckType, :blueRoof, :greenRoof , :coolRoof
   end
 end

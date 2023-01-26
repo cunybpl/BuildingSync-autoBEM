@@ -46,9 +46,9 @@ module BuildingSync
     # @param ref [String]
     def initialize(doc, ns, ref)
       @id = nil
-      doc.elements.each("#{ns}:Systems/#{ns}:FoundationSystems/#{ns}:FoundationSystem") do |foundation_system|
+      XPath.match(doc.root,"//#{ns}:FoundationSystem").each do |foundation_system|
         if foundation_system.attributes['ID'] == ref
-          read(foundation_system, ns)
+          self.read(foundation_system, ns)
         end
       end
     end
@@ -57,8 +57,38 @@ module BuildingSync
     # @param foundation_system [REXML:Element]
     # @param ns [String]
     def read(foundation_system, ns)
+      puts "I'm in read func"
       # ID
       @id = foundation_system.attributes['ID'] if foundation_system.attributes['ID']
+
+      puts @foundationgroundCoupling = XPath.first(foundation_system,".//#{ns}:GroundCoupling")[0].name.gsub("auc:","")
+
+      
+      xmlfoundationCrawlspaceVentilation = XPath.first(foundation_system,".//#{ns}:CrawlspaceVenting")[0].name.gsub("auc:","") if @foundationgroundCoupling == "CrawlspaceVenting"
+      @foundationCrawlspaceVentilation =  case xmlfoundationCrawlspaceVentilation
+                                          when "Ventilated"
+                                            true
+                                          when "Unventilated"
+                                            false
+                                          when nil
+                                            nil
+                                          end
+
+      xmlfoundationRValue = case @foundationgroundCoupling
+                            when "CrawlSpace"
+                              XPath.first(foundation_system,".//#{ns}:FloorRValue")
+                            when "SlabOnGrade"
+                              XPath.first(foundation_system,".//#{ns}:SlabRValue")
+                            when "Basement"
+                              XPath.first(foundation_system,".//#{ns}:FoundationWallRValue")
+                            end
+      
+      xmlfoundationThickness = XPath.first(foundation_system,".//#{ns}:SlabInsulationThickness") if @foundationgroundCoupling == "SlabOnGrade"
+
+      @foundationRValue = help_get_text_value_as_float(xmlfoundationRValue) unless xmlfoundationRValue.nil?
+      
+      @foundationThickness = help_get_text_value_as_float(xmlfoundationThickness) if @foundationgroundCoupling == "SlabOnGrade" && !xmlfoundationThickness.nil?
     end
+    attr_reader :id, :foundationgroundCoupling, :foundationCrawlspaceVentilation, :foundationRValue, :foundationThickness
   end
 end

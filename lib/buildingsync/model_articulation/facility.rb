@@ -107,34 +107,35 @@ module BuildingSync
       # Create new Site
       @site = BuildingSync::Site.new(@site_xml, @ns)
 
-      # Report - checks
-      report_xml_temp = @base_xml.get_elements("#{@ns}:Reports/#{@ns}:Report")
-      if report_xml_temp.nil? || report_xml_temp.empty?
-        OpenStudio.logFree(OpenStudio::Error, 'BuildingSync.Facility.read_xml', "Facility with ID: #{xget_id} has no Report elements.  Cannot initialize Facility.")
-        raise StandardError, "Facility with ID: #{xget_id} has no Report elements.  Cannot initialize Facility."
-      elsif report_xml_temp.size > 1
-        @report_xml = report_xml_temp.first
-        OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.Facility.read_xml', "There are more than one (#{report_xml_temp.size}) Report elements in your BuildingSync file. Only the first Report will be considered (ID: #{@report_xml.attributes['ID']}")
-      else
-        @report_xml = report_xml_temp.first
-      end
-      # Create new Report
-      @report = BuildingSync::Report.new(@report_xml, @ns)
+      ### JAN 22 Currently don't care about these we're just in model generation
+      # # Report - checks
+      # report_xml_temp = @base_xml.get_elements("#{@ns}:Reports/#{@ns}:Report")
+      # if report_xml_temp.nil? || report_xml_temp.empty?
+      #   OpenStudio.logFree(OpenStudio::Error, 'BuildingSync.Facility.read_xml', "Facility with ID: #{xget_id} has no Report elements.  Cannot initialize Facility.")
+      #   raise StandardError, "Facility with ID: #{xget_id} has no Report elements.  Cannot initialize Facility."
+      # elsif report_xml_temp.size > 1
+      #   @report_xml = report_xml_temp.first
+      #   OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.Facility.read_xml', "There are more than one (#{report_xml_temp.size}) Report elements in your BuildingSync file. Only the first Report will be considered (ID: #{@report_xml.attributes['ID']}")
+      # else
+      #   @report_xml = report_xml_temp.first
+      # end
+      # # Create new Report
+      # @report = BuildingSync::Report.new(@report_xml, @ns)
 
-      measures_xml_temp = @base_xml.get_elements("#{@ns}:Measures/#{@ns}:Measure")
+      # measures_xml_temp = @base_xml.get_elements("#{@ns}:Measures/#{@ns}:Measure")
 
-      # Measures - create
-      if !measures_xml_temp.nil?
-        measures_xml_temp.each do |measure_xml|
-          if measure_xml.is_a? REXML::Element
-            @measures.push(BuildingSync::Measure.new(measure_xml, @ns))
-          end
-        end
-        OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.read_xml', "Facility with ID: #{xget_id} has #{@measures.size} Measure Objects")
-      end
+      # # Measures - create
+      # if !measures_xml_temp.nil?
+      #   measures_xml_temp.each do |measure_xml|
+      #     if measure_xml.is_a? REXML::Element
+      #       @measures.push(BuildingSync::Measure.new(measure_xml, @ns))
+      #     end
+      #   end
+      #   OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.read_xml', "Facility with ID: #{xget_id} has #{@measures.size} Measure Objects")
+      # end
 
-      read_other_details
-      read_and_create_initial_systems
+      # read_other_details
+      # read_and_create_initial_systems
     end
 
     # set_all wrapper for Site

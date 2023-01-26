@@ -39,6 +39,7 @@
 
 module BuildingSync
   # Wall System Type
+  ### Will need to make this take ExteriorWallConstruction & ExteriorWallFinish & WallInsulationRValue : NOW DONE JAN22
   class WallSystemType
     # initialize a specific floor system type given a ref
     # @param doc [REXML::Document]
@@ -46,9 +47,9 @@ module BuildingSync
     # @param ref [String]
     def initialize(doc, ns, ref)
       @id = nil
-      doc.elements.each("#{ns}:Systems/#{ns}:WallSystems/#{ns}:WallSystem") do |wall_system|
+      XPath.match(doc.root,"//#{ns}:WallSystem").each do |wall_system|
         if wall_system.attributes['ID'] == ref
-          read(wall_system, ns)
+          self.read(wall_system, ns)
         end
       end
     end
@@ -57,8 +58,18 @@ module BuildingSync
     # @param wall_system [REXML:Element]
     # @param ns [String]
     def read(wall_system, ns)
-      # ID
+
       @id = wall_system.attributes['ID'] if wall_system.attributes['ID']
+      
+      xmlwallInsulationRValue = XPath.first(wall_system,".//#{ns}:WallInsulationRValue")
+      xmlexteriorWallConstruction = XPath.first(wall_system,".//#{ns}:ExteriorWallConstruction")
+      xmlexteriorWallFinish = XPath.first(wall_system,".//#{ns}:ExteriorWallFinish") 
+      
+      @wallInsulationRValue = help_get_text_value_as_float(xmlwallInsulationRValue) unless xmlwallInsulationRValue.nil?
+      @exteriorWallConstruction = help_get_text_value(xmlexteriorWallConstruction) unless xmlexteriorWallConstruction.nil?
+      @exteriorWallFinish = help_get_text_value(xmlexteriorWallFinish) unless xmlexteriorWallFinish.nil?
     end
+    
+    attr_reader :id, :wallInsulationRValue, :exteriorWallConstruction, :exteriorWallFinish
   end
 end
