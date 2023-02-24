@@ -37,10 +37,9 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # *******************************************************************************
 
-### Commented out to suppress output when using toolkitforbsxmls
-# SCHEMA_2_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.0/BuildingSync.xsd'
-# SCHEMA_2_2_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.2.0/BuildingSync.xsd'
-# SCHEMA_2_4_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.4.0/BuildingSync.xsd'
+SCHEMA_2_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.0/BuildingSync.xsd'
+SCHEMA_2_2_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.2.0/BuildingSync.xsd'
+SCHEMA_2_4_0_URL = 'https://raw.githubusercontent.com/BuildingSync/schema/v2.4.0/BuildingSync.xsd'
 PHASE_0_BASE_OSW_FILE_PATH = File.expand_path(File.join(__dir__, 'makers/phase_zero_base.osw'))
 WORKFLOW_MAKER_JSON_FILE_PATH = File.expand_path(File.join(__dir__, 'makers/workflow_maker.json'))
 BUILDING_AND_SYSTEMS_FILE_PATH = File.expand_path(File.join(__dir__, 'model_articulation/building_and_system_types.json'))

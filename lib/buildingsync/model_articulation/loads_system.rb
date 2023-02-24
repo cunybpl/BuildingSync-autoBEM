@@ -76,6 +76,8 @@ module BuildingSync
       OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', 'Adding internal loads')
       count_not_found = 0
       model.getSpaceTypes.each do |space_type|
+        ### should probably do something here to set standards type of space type based on reasonable information & not just what .osm says
+        ### e.g. the school building we had was saying 'office' rather than school or retail
         data = standard.space_type_get_standards_data(space_type)
         if data.empty?
           original_building_type = space_type.standardsBuildingType.get
@@ -84,14 +86,14 @@ module BuildingSync
             space_type.setStandardsBuildingType(alternate_building_type)
             data = standard.space_type_get_standards_data(space_type)
             if data.empty?
-              OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Unable to get standards data for Space Type: #{space_type.name}.  Tried standards building type: #{original_building_type} and #{alternate_building_type} with standards space type: #{space_type.standardsSpaceType.get}")
+              OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Unable to get standards data for Space Type: #{space_type.name}.  Tried standards building type: #{original_building_type} and #{alternate_building_type} with standards space type: #{space_type.standardsSpaceType}")
               count_not_found += 1
               next
             else
-              OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Space Type: #{space_type.name}. Standards building type changed from #{original_building_type} to #{alternate_building_type} with standards space type: #{space_type.standardsSpaceType.get}")
+              OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Space Type: #{space_type.name}. Standards building type changed from #{original_building_type} to #{alternate_building_type} with standards space type: #{space_type.standardsSpaceType}")
             end
           else
-            OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Unable to get standards data for Space Type: #{space_type.name}.  Standards building type: #{space_type.standardsBuildingType.get}, space type: #{space_type.standardsSpaceType.get}")
+            OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', "Unable to get standards data for Space Type: #{space_type.name}.  Standards building type: #{space_type.standardsBuildingType}, space type: #{space_type.standardsSpaceType}")
             count_not_found += 1
             next
           end

@@ -1,112 +1,39 @@
-# BuildingSync
+# AutoBEM-Gem
 
-![BuildingSync-gem](https://github.com/BuildingSync/BuildingSync-gem/actions/workflows/continuous_integration.yml/badge.svg?branch=develop)
+<!-- ![BuildingSync-gem](https://github.com/BuildingSync/BuildingSync-gem/actions/workflows/continuous_integration.yml/badge.svg?branch=develop) -->
 
-The BuildingSync-Gem is a repository of helpers for reading and writing BuildingSync XML files, and for using that data 
-to drive energy simulations of the subject building. See full documentation [here](https://buildingsync-gem.buildingsync.net).
+This repository is created under the AutoBEM project and is home to tools useful in translating BuildingSync XML files to OpenStudio energy models. Namely:
+* [generate](/lib/autobem/generate/): the auto-generate-BEM function
+* [analyze](lib/autobem/analyze/): a BSXML analysis toolkit (for use with multiple files)
+* [validate](lib/autobem/validate/): a BSXML validator interface
 
-All of the following are supported: 
+The AutoBEM project is a workflow for (semi-)automatic creation, simulation, and calibration of OpenStudio building energy models. This is accomplished by by merging building geometry data and BuildingSync XML files. The translation of BuildingSync XML elements to be merged with OpenStudio geometry (the main purpose of this repo) is a contribution to existing functionalities of [BuildingSync-Gem](https://github.com/BuildingSync/BuildingSync-gem). 
 
-  * convert BuildingSync XML file into: 
-      * an OpenStudio Baseline model 
-      * an OpenStudio workflow for each scenario defined in the XML file 
-  * enable simulation of the baseline model and all workflows and 
-  * insert simulation results back into the Building XML file. 
+This workflow is prototyped by CUNY Building Performance Lab for the energy modeling of a large portfolio of municipal buildings managed by New York City's Department of Citywide Administrative Services (DCAS) Division of Energy Management (DEM).
 
 ## Installation
+### Prerequisites
+BuildingSync-autoBEM requires installation of Ruby and OpenStudio and currently uses Ruby 2.7.x and OpenStudio 3.5.x. Checking the [OpenStudio Compatibility Matrix](https://github.com/NREL/OpenStudio/wiki/OpenStudio-SDK-Version-Compatibility-Matrix) is recommended.
 
-The BuildingSync Gem requires installation of OpenStudio, specifically [OpenStudio v3.0.1](https://openstudio-builds.s3.amazonaws.com/index.html?prefix=3.0.1/).
-The newer versions of OpenStudio have minor breaking changes that have not been addressed in this repository yet. After OpenStudio is 
-installed, then export the path of the folder that contains the openstudio.rb file to RUBYLIB environment variable
-(e.g., `export RUBYLIB=/Applications/OpenStudio-3.0.1/Ruby`)
-
-After installing OpenStudio and setting the environment variable, then add this line to your application's Gemfile:
+For MacOS, set your Terminal to use a bash shell, and to set the Ruby environment variable (telling Ruby where to find OpenStudio, this should be your OpenStudio installation path) by adding the following line to your `.bash_profile` file:
+```
+export RUBYLIB=/Applications/OpenStudio-3.5.1/Ruby
+```
+For Windows, this is achieved by running the following command
+```
+SETX PATH “%PATH%;C:\openstudio-3.5.1”
+```
+### AutoBEM
+BuildingSync-autoBEM tools currently work as command line interfaces. Clone the repository to your device or download a copy. Thereafter, to access the functionalities of this repo, you can use an Interactive Ruby (irb) shell & copy the following command when :
 ```ruby
-gem 'buildingsync', '0.2.1'
+load 'path/to/BuildingSync-autoBEM/lib/autobem.rb'
 ```
-
-And then execute:
-```bash
-bundle install
+For simplicity, AutoBEM can launch with a 'double click' if you use the `.command` or `.bat` files, for MacOS and Windows respectively.
+To enable this on MacOS, navigate to the autobem subdirectory in Terminal and make the `useautobem` file executable by running:
 ```
-
-Or install it yourself as:
-```bash
-gem install 'buildingsync'
+chmod 755 useautobem.command
 ```
 
 ## Usage
 
-All of the features described above are provided by the translator class, as shown in the following sample code. There
-are also BuildingSync Gem example files in [this repository](https://github.com/BuildingSync/BuildingSync-gem-examples).
-
-```ruby
-require 'buildingsync/translator'
-
-building_sync_xml_file_path = 'path/to/bsync.xml'
-out_path = 'path/to/output_dir'
-
-# initializing the translator 
-translator = BuildingSync::Translator.new(building_sync_xml_file_path, out_path)
-
-# generating the OpenStudio Model and writing the osm file.
-# path/to/output_dir/SR and path/to/output_dir/in.osm created
-translator.setup_and_sizing_run
-
-# generating the OpenStudio workflows and writing the osw files
-# auc:Scenario elements with measures are turned into new simulation dirs
-# path/to/output_dir/scenario_name
-translator.write_osws
-
-# run all simulations
-translator.run_osws
-
-# gather the results for all scenarios found in out_path,
-# such as annual and monthly data for different energy
-# sources (electricity, natural gas, etc.)
-translator.gather_results(out_path)
-
-# Add in UserDefinedFields, which contain information about the
-# OpenStudio model run 
-translator.prepare_final_xml
-
-# write results to xml
-# default file name is 'results.xml' 
-file_name = 'abc-123.xml' 
-translator.save_xml(file_name)
-```
-
-## Testing
-
-Check out the repository and then execute:
-
-```bash
-bundle install
-bundle exec rake
-```
-    
-## Documentation
-
-The documentation of the BuildingSync-Gem is done with Yard (https://yardoc.org)
-To generate the documentation locally do the following:
-
-```bash
-gem install yard
-SITEMAP_BASEURL=https://buildingsync-gem.buildingsync.net bundle exec yard doc --plugin sitemap
-```
-
-Documentation for the develop branch is automatically released when code is merged into the branch.
-
-# Releasing
-
-1. Update CHANGELOG.md
-1. Run `bundle exec rake rubocop:auto_correct`
-1. Update version in `lib/buildingsync/version.rb`
-1. Create PR to main, after tests and reviews complete, then merge
-1. Locally - from the main branch, run `bundle exec rake release`
-1. On GitHub, go to the releases page and update the latest release tag. Name it “Version x.y.z” and copy the CHANGELOG entry into the description box.
-
-# TODO
-
-* [ ] Support BuildingSync 2.3.0
-* [ ] Update to OpenStudio version 3.2.0
+As mentioned, using AutoBEM can be done with loading `autobem.rb` or 'double clicking' the executable files. To learn more about using the unique functionalities of the AutoBEM Gem, please visit the corresponding READMEs in [generate](/lib/autobem/generate/), [analyze](lib/autobem/analyze/), and [validate](lib/autobem/validate/) subdirectories.

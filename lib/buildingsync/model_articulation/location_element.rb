@@ -89,6 +89,8 @@ module BuildingSync
     # @param standard_to_be_used [String]
     # @return [String]
     def get_climate_zone
+      ### Will set this to '4A' in AutoBEM since we're in NYC & the BSXMLs contain no auc:ClimateZoneType/auc:ASHRAE elements
+      @climate_zone = '4A'
       return @climate_zone
     end
 

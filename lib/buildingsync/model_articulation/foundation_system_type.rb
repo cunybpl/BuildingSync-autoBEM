@@ -57,14 +57,14 @@ module BuildingSync
     # @param foundation_system [REXML:Element]
     # @param ns [String]
     def read(foundation_system, ns)
-      puts "I'm in read func"
       # ID
       @id = foundation_system.attributes['ID'] if foundation_system.attributes['ID']
-
-      puts @foundationgroundCoupling = XPath.first(foundation_system,".//#{ns}:GroundCoupling")[0].name.gsub("auc:","")
+      
+      xmlfoundationgroundCoupling = XPath.first(foundation_system,".//#{ns}:GroundCoupling")
+      @foundationgroundCoupling = xmlfoundationgroundCoupling[0].name.gsub("auc:","") unless xmlfoundationgroundCoupling.nil?
 
       
-      xmlfoundationCrawlspaceVentilation = XPath.first(foundation_system,".//#{ns}:CrawlspaceVenting")[0].name.gsub("auc:","") if @foundationgroundCoupling == "CrawlspaceVenting"
+      xmlfoundationCrawlspaceVentilation = XPath.first(foundation_system,".//#{ns}:CrawlspaceVenting").name.gsub("auc:","") if @foundationgroundCoupling == "CrawlspaceVenting"
       @foundationCrawlspaceVentilation =  case xmlfoundationCrawlspaceVentilation
                                           when "Ventilated"
                                             true

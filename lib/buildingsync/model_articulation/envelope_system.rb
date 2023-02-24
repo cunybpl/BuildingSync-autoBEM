@@ -52,6 +52,9 @@ module BuildingSync
     # @param lookup_building_type [String]
     # @param remove_objects [Boolean]
     # @return [Boolean]
+
+    ### standard should be taken care of by default
+    ### primary
     def create(model, standard, primary_bldg_type, lookup_building_type, remove_objects)
       # remove default construction sets
       if remove_objects
@@ -64,7 +67,9 @@ module BuildingSync
       else
         is_residential = 'No'
       end
-      climate_zone = standard.model_get_building_climate_zone_and_building_type(model)['climate_zone']
+      ### Changed to proper function. Maybe because new version of openstudio-standards?
+      ### This was old function: climate_zone = standard.model_get_building_climate_zone_and_building_type(model)['climate_zone']
+      climate_zone = standard.model_get_building_properties(model)['climate_zone']
       OpenStudio.logFree(OpenStudio::Error, 'BuildingSync.Facility.create_building_system', 'Could not find climate zone in the model. Verify that the climate zone is set in the BuildingSync File or can be derived from other inputs.') if climate_zone.nil?
       bldg_def_const_set = standard.model_add_construction_set(model, climate_zone, lookup_building_type, nil, is_residential)
       if bldg_def_const_set.is_initialized
@@ -106,7 +111,37 @@ module BuildingSync
 
     ### I think this will work by taking in BuildingSyc::BuildingSection & read the refs of its linked constructions
     ### & then create them as BuildingSync objs & then use their attrs as arguments for OS SDK functions
-    def modify(model,section)
+    def modify(model,standard,section)
+      # if section.door_objs.any? {|door_obj| !door_obj.insulationRValue.empty?}
+      #   standard.model_find_constructions(model, boundary_condition, type)
+      # end
+      
+      puts "\n\nI'm in BuildingSync::EnvelopeSystem.modify"
+      ### Get array of walls with defined Insulation R Value from BuildingSync Object
+      walls_with_defined_insulation = section.wall_objs.select {|model_ext_wall| !model_ext_wall.wallInsulationRValue.nil?}
+      puts "\n\nYour walls_with_defined_insulation are #{walls_with_defined_insulation}"
+      unless walls_with_defined_insulation.empty?
+        puts "\n\n I'll get u_value now"
+        r_value = walls_with_defined_insulation.first.wallInsulationRValue
+        u_value = 1/r_value # converting because Standards function takes u_value
+        puts "\n\n Your u_value is #{u_value}. Now I'll find model exterior walls."
+        model_ext_walls = standard.model_find_constructions(model, "Outdoors", "ExteriorWall")
+        puts "\n\nYour model_ext_walls are #{model_ext_walls}"
+        model_ext_walls.each do |model_ext_wall|
+          puts "\n\nNow I'll set u_value of model_ext_wall #{model_ext_wall}"
+          puts standard.construction_set_u_value(model_ext_wall,r_value,false,false)
+        end
+      end
+
+      # unless section.window_objs.empty?
+        
+      # unless section.roof_objs.empty?
+        
+      # unless section.skylight_objs.empty?
+        
+      # unless section.foundation_objs.empty?
+        
+      # standard.model_find_constructions(model, boundary_condition, type)
     end
 
   end

@@ -106,7 +106,8 @@ module BuildingSync
       @total_floor_area = read_floor_areas(site_total_floor_area)
       # read location specific values
       read_location_values
-      check_occupancy_classification(site_occupancy_classification)
+      ### commented out until we allow foregoing occupany at building level or simply reading from different section types
+      # check_occupancy_classification(site_occupancy_classification)
       set_built_year
 
       # deal with stories above and below grade
@@ -133,10 +134,11 @@ module BuildingSync
     # set all function to set all parameters for this building
     def set_all
       if !@all_set
-        @all_set = true
+        @all_set = true 
         set_bldg_and_system_type_for_building_and_section
-        set_building_form_defaults
-        set_width_and_length
+        determine_open_studio_standard
+        # set_building_form_defaults
+        # set_width_and_length
       end
     end
 
@@ -154,7 +156,10 @@ module BuildingSync
         xset_or_create('OccupancyClassification', site_occupancy_classification, false)
       end
       if xget_text('OccupancyClassification').nil?
-        raise StandardError, "Building ID: #{xget_id}. OccupancyClassification must be defined at either the Site or Building level."
+        ### I'll change this to allow going to read at section level maybe?
+        ### Or just let it be till Sections define their own OccupancyClassification
+        # raise StandardError, "Building ID: #{xget_id}. OccupancyClassification must be defined at either the Site or Building level."
+        puts "Building ID: #{xget_id}. OccupancyClassification wasn't defined at either the Site or Building level."
       end
     end
 
@@ -382,15 +387,23 @@ module BuildingSync
 
     # set building and system type for building and sections
     def set_bldg_and_system_type_for_building_and_section
-      @building_sections.each(&:set_bldg_and_system_type)
-
-      set_bldg_and_system_type(xget_text('OccupancyClassification'), @total_floor_area, num_stories, true)
+      ### I don't think I'll need this once I got what I obtained in autobem.rb
+      # @building_sections.each(&:set_bldg_and_system_type)
+      building_occupancy_classification = ""
+      if xget_text('OccupancyClassification').nil?
+        @building_sections.each do |sec|
+          building_occupancy_classification = sec.occupancy_classification unless sec.occupancy_classification.nil?
+        end
+      else
+        building_occupancy_classification = xget_text('OccupancyClassification')
+      end
+      set_bldg_and_system_type(building_occupancy_classification, @total_floor_area, num_stories, true)
     end
 
     # determine the open studio standard and call the set_all function
     # @param standard_to_be_used [String]
     # @return [Standard]
-    def determine_open_studio_standard(standard_to_be_used)
+    def determine_open_studio_standard(standard_to_be_used=ASHRAE90_1) ### This makes things work for now
       set_all
       begin
         set_standard_template(standard_to_be_used, get_built_year)
@@ -486,6 +499,7 @@ module BuildingSync
     # get @standard_template
     # @return [String]
     def get_standard_template
+      set_all
       return @standard_template
     end
 
@@ -1115,5 +1129,6 @@ module BuildingSync
 
     attr_reader :building_rotation, :name, :length, :width, :num_stories_above_grade, :num_stories_below_grade, :floor_height, :space, :wwr,
                 :occupant_quantity, :number_of_units, :built_year, :year_major_remodel, :building_sections
+    attr_accessor :model
   end
 end

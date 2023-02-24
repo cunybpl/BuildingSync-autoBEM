@@ -58,6 +58,9 @@ module BuildingSync
       @base_xml = base_xml
       @ns = ns
 
+      ### added as it wasn't being read for some reason
+      @id = @base_xml.attributes['ID'] if @base_xml.attributes['ID']
+
       help_element_class_type_check(base_xml, 'Section')
 
       @door_ids = []
@@ -67,10 +70,20 @@ module BuildingSync
       @skylight_ids = []
       @exterior_floor_ids = []
       @foundation_ids = []
+      
+      ### These will contain BuildingSync objects
+      @door_objs = []
+      @wall_objs = []
+      @window_objs = []
+      @roof_objs = []
+      @skylight_objs = []
+      @exterior_floor_objs = []
+      @foundation_objs = []
 
       # parameter to read and write.
       @fraction_area = nil
       @standards_building_type = nil
+      @occupancy_classification = nil ### added Feb 8
       @occupancy_classification_original = nil
       @typical_occupant_usage_value_hours = nil
       @typical_occupant_usage_value_weeks = nil
@@ -79,7 +92,9 @@ module BuildingSync
       @num_stories = num_stories
 
       @total_floor_area = read_floor_areas(building_total_floor_area)
-      xset_or_create('OccupancyClassification', building_occupancy_classification, false)
+      
+      ### Deprecated as AT BSXMLs don't define OccupancyClassification at bldg level
+      # xset_or_create('OccupancyClassification', building_occupancy_classification, false)
 
       # code to initialize
       read_xml
@@ -93,6 +108,12 @@ module BuildingSync
       # based on the occupancy type set building type, system type and bar division method
       read_building_section_other_detail
       read_construction_types
+
+      if @base_xml.elements["#{@ns}:OccupancyClassification"]
+        @occupancy_classification = @base_xml.elements["#{@ns}:OccupancyClassification"].text
+      else
+        @occupancy_classification = nil
+      end
 
       if @base_xml.elements["#{@ns}:OccupancyLevels/#{@ns}:OccupancyLevel/#{@ns}:OccupantQuantity"]
         @occupant_quantity = @base_xml.elements["#{@ns}:OccupancyLevels/#{@ns}:OccupancyLevel/#{@ns}:OccupantQuantity"].text
@@ -169,7 +190,8 @@ module BuildingSync
 
     # set building and system type
     def set_bldg_and_system_type
-      super(xget_text('OccupancyClassification'), @total_floor_area, @number_floors, false)
+      # super(xget_text('OccupancyClassification'), @total_floor_area, @number_floors, false)
+      super(@occupancy_classification, @total_floor_area, @num_stories, false)
     end
 
     # get peak occupancy
@@ -184,7 +206,10 @@ module BuildingSync
       return @total_floor_area
     end
 
-    attr_reader :space_types_floor_area, :occupancy_classification, :typical_occupant_usage_value_weeks, :typical_occupant_usage_value_hours, :standards_building_type, :section_type, :id
-    attr_accessor :fraction_area
+    attr_reader :space_types_floor_area, :typical_occupant_usage_value_weeks, :typical_occupant_usage_value_hours, :standards_building_type, :section_type, :id,
+    :occupancy_classification, :num_stories,
+    :door_ids, :wall_ids, :window_ids, :roof_ids, :skylight_ids, :foundation_ids
+    attr_accessor :fraction_area,
+    :door_objs, :wall_objs, :window_objs, :roof_objs, :skylight_objs, :foundation_objs
   end
 end

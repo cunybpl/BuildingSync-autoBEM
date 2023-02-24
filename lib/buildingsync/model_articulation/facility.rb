@@ -134,8 +134,10 @@ module BuildingSync
       #   OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.read_xml', "Facility with ID: #{xget_id} has #{@measures.size} Measure Objects")
       # end
 
+      ### FEB 14 I probably need this
+      ### turning this on breaks the get_building_sections command in autobem.rb
       # read_other_details
-      # read_and_create_initial_systems
+      read_and_create_initial_systems
     end
 
     # set_all wrapper for Site
@@ -229,8 +231,10 @@ module BuildingSync
         lighting_xml = @g.add_lighting_system_to_facility(@base_xml)
         @hvac_system = HVACSystem.new(hvac_xml, @ns)
         @lighting_system = LightingSystemType.new(lighting_xml, @ns)
-        @load_system = LoadsSystem.new
+        # @load_system = LoadsSystem.new
       end
+      ### Putting this here so we always have a LoadsSystem & object for the time being
+      @load_system = LoadsSystem.new
     end
 
     # @see BuildingSync::Report.add_cb_modeled
@@ -271,7 +275,12 @@ module BuildingSync
       end
     end
 
+    ### Feb 8 adding an existing OSM as parameter
+    ### autobem_primary_bldg_type added since it's being separately obtained from building section
+    ### added add_lighting as parameter since it makes sense to have it
     # create building systems
+    # @param autobem_inputmodel [OpenStudio::Model]
+    # autobem_primary_bldg_type [String]
     # @param main_output_dir [String] main output path, not scenario specific. i.e. SR should be a subdirectory
     # @param zone_hash [Hash]
     # @param hvac_delivery_type [String]
@@ -281,18 +290,36 @@ module BuildingSync
     # @param add_constructions [Boolean]
     # @param add_elevators [Boolean]
     # @param add_exterior_lights [Boolean]
+    # @param add_lighting [Boolean]
     # @param add_exhaust [Boolean]
     # @param add_swh [Boolean]
     # @param add_hvac [Boolean]
     # @param add_thermostat [Boolean]
     # @param remove_objects [Boolean]
-    def create_building_systems(main_output_dir:, zone_hash: nil, hvac_delivery_type: 'Forced Air', htg_src: 'NaturalGas', clg_src: 'Electricity',
+    def create_building_systems(autobem_inputmodel: , autobem_primary_bldg_type:,
+                                main_output_dir: nil, zone_hash: nil, hvac_delivery_type: 'Forced Air', htg_src: 'NaturalGas', clg_src: 'Electricity',
                                 add_space_type_loads: true, add_constructions: true, add_elevators: false, add_exterior_lights: false,
-                                add_exhaust: true, add_swh: true, add_hvac: true, add_thermostat: true, remove_objects: false)
-      model = @site.get_model
+                                add_lighting: false,
+                                add_exhaust: false, add_swh: false, add_hvac: false, add_thermostat: false, remove_objects: false)
+      
+      model = case autobem_inputmodel
+              when autobem_inputmodel
+                autobem_inputmodel
+              else
+                @site.get_model
+              end
+              
+
+
       template = @site.get_standard_template
       system_type = @site.get_system_type
+      
+      ### I need a way to set the climate zone in the model before proceeding
       climate_zone = @site.get_climate_zone
+      
+      ### Adding this since the model needs its climate zone set & the BuildingSync::Building object needs its osm defined
+      @site.get_building.model = model
+      @site.get_building.set_climate_zone(climate_zone, standard_to_be_used=ASHRAE90_1)
 
       onsite_parking_fraction = 1.0
       exterior_lighting_zone = '3 - All Other Areas'
@@ -305,6 +332,7 @@ module BuildingSync
       # TODO: systems_xml.elements["#{@ns}:LightingSystems"]
       # Make the open_studio_system_standard applier
       open_studio_system_standard = determine_open_studio_system_standard
+
       OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.create_building_system', "Building Standard with template: #{template}.")
 
       # add internal loads to space types
@@ -335,10 +363,22 @@ module BuildingSync
           OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.Facility.create_building_system', "Can't identify building type for #{space_type.name}")
         end
       end
-      primary_bldg_type = building_types.key(building_types.values.max) # TODO: - this fails if no space types, or maybe just no space types with standards
+      
+      primary_bldg_type = nil
+      if autobem_primary_bldg_type.nil?
+        primary_bldg_type = building_types.key(building_types.values.max) # TODO: - this fails if no space types, or maybe just no space types with standards
+      else
+        primary_bldg_type = autobem_primary_bldg_type 
+      end
       lookup_building_type = open_studio_system_standard.model_get_lookup_name(primary_bldg_type) # Used for some lookups in the standards gem
       model.getBuilding.setStandardsBuildingType(primary_bldg_type)
 
+      # puts "\n\nGetting building sections in facility"
+      # puts @site.get_building_sections.each do |sec|
+      #   unless sec.wall_objs.empty?
+      #     sec.wall_objs.each {|wall_obj| puts wall_obj.wallInsulationRValue.to_f}
+      #   end
+      # end
       envelope_system = nil
       # make construction set and apply to building
       if add_constructions
@@ -375,7 +415,9 @@ module BuildingSync
       end
 
       # TODO: Make this better
-      @lighting_system.add_daylighting_controls(model, open_studio_system_standard, template, main_output_dir)
+      if add_lighting
+        @lighting_system.add_daylighting_controls(model, open_studio_system_standard, template, main_output_dir)
+      end
 
       # TODO: - add internal mass
       # TODO: - add slab modeling and slab insulation
@@ -435,6 +477,6 @@ module BuildingSync
       @site.prepare_final_xml
     end
 
-    attr_reader :systems_map, :site, :report, :measures, :contacts
+    attr_reader :systems_map, :site, :report, :measures, :contacts, :load_system
   end
 end
