@@ -72,6 +72,7 @@ module BuildingSync
       @foundation_ids = []
       
       ### These will contain BuildingSync objects
+      @has_constructions = false
       @door_objs = []
       @wall_objs = []
       @window_objs = []
@@ -209,7 +210,9 @@ module BuildingSync
     attr_reader :space_types_floor_area, :typical_occupant_usage_value_weeks, :typical_occupant_usage_value_hours, :standards_building_type, :section_type, :id,
     :occupancy_classification, :num_stories,
     :door_ids, :wall_ids, :window_ids, :roof_ids, :skylight_ids, :foundation_ids
+    
     attr_accessor :fraction_area,
+    :has_constructions,
     :door_objs, :wall_objs, :window_objs, :roof_objs, :skylight_objs, :foundation_objs
   end
 end

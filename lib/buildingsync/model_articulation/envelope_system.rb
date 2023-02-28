@@ -36,6 +36,7 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # *******************************************************************************
+
 require_relative 'building_system'
 module BuildingSync
   # EnvelopeSystem class
@@ -106,42 +107,116 @@ module BuildingSync
 
 
     ### This function will maintain that openstudio-standards is used to create & assign the default constructions
-    ### and will add other properties e.g. Insulation R Values according to defined objects of 
-    ### BuildingSync::WallSystemType + BuildingSync::RoofSystemType + BuildingSync::Fenestration
-
-    ### I think this will work by taking in BuildingSyc::BuildingSection & read the refs of its linked constructions
-    ### & then create them as BuildingSync objs & then use their attrs as arguments for OS SDK functions
-    def modify(model,standard,section)
-      # if section.door_objs.any? {|door_obj| !door_obj.insulationRValue.empty?}
-      #   standard.model_find_constructions(model, boundary_condition, type)
-      # end
+    ### and will add OpenStudio envelope objects when BuildingSync::Section objects have associated envelope objects
+    ### (BuildingSync::WallSystemType + BuildingSync::RoofSystemType + BuildingSync::FenestrationSystemType + BuildingSync::FoundationSystemType)
+    ### with defined (Insulation) R Values
+    def create_bsxml_envelope(model,standard,section)
       
-      puts "\n\nI'm in BuildingSync::EnvelopeSystem.modify"
-      ### Get array of walls with defined Insulation R Value from BuildingSync Object
-      walls_with_defined_insulation = section.wall_objs.select {|model_ext_wall| !model_ext_wall.wallInsulationRValue.nil?}
-      puts "\n\nYour walls_with_defined_insulation are #{walls_with_defined_insulation}"
-      unless walls_with_defined_insulation.empty?
-        puts "\n\n I'll get u_value now"
-        r_value = walls_with_defined_insulation.first.wallInsulationRValue
-        u_value = 1/r_value # converting because Standards function takes u_value
-        puts "\n\n Your u_value is #{u_value}. Now I'll find model exterior walls."
-        model_ext_walls = standard.model_find_constructions(model, "Outdoors", "ExteriorWall")
-        puts "\n\nYour model_ext_walls are #{model_ext_walls}"
-        model_ext_walls.each do |model_ext_wall|
-          puts "\n\nNow I'll set u_value of model_ext_wall #{model_ext_wall}"
-          puts standard.construction_set_u_value(model_ext_wall,r_value,false,false)
+      ### Doors
+      doors_with_defined_u_value = section.door_objs.select {|model_door| !model_door.fenestrationUFactor.nil?}
+      unless doors_with_defined_u_value.empty?
+
+        u_value = doors_with_defined_u_value.first.fenestrationUFactor
+        
+        model_doors = standard.model_find_constructions(model, "Outdoors", "ExteriorDoor")
+        
+        model_doors.each do |model_door|
+          model_door = model_door.to_Construction.get
+          
+          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
+          insulation_layer = standard.find_and_set_insulation_layer(model_door).name
+          standard.construction_set_glazing_u_value(model_door,u_value,insulation_layer_name=insulation_layer,false,false)
+
         end
+      else
+        puts "You have no BSXML door elements with defined Insulation R Values. No wall insulation properties will be changed."
       end
 
-      # unless section.window_objs.empty?
+      ### Walls
+      walls_with_defined_insulation = section.wall_objs.select {|model_ext_wall| !model_ext_wall.wallInsulationRValue.nil?}
+      unless walls_with_defined_insulation.empty?
+
+        r_value = walls_with_defined_insulation.first.wallInsulationRValue
+        u_value = 1/r_value # converting because Standards function takes u_value
         
-      # unless section.roof_objs.empty?
+        model_ext_walls = standard.model_find_constructions(model, "Outdoors", "ExteriorWall")
         
-      # unless section.skylight_objs.empty?
+        model_ext_walls.each do |model_ext_wall|
+          model_ext_wall = model_ext_wall.to_Construction.get
+          
+          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
+          insulation_layer = standard.find_and_set_insulation_layer(model_ext_wall).name
+          standard.construction_set_u_value(model_ext_wall,u_value,insulation_layer_name=insulation_layer,false,false)
+
+        end
+      else
+        puts "You have no BSXML exterior wall elements with defined Insulation R Values. No wall insulation properties will be changed."
+      end
+
+      ### Windows
+      windows_with_defined_u_value = section.window_objs.select {|model_window| !model_window.fenestrationUFactor.nil?}
+      unless windows_with_defined_u_value.empty?
+
+        u_value = windows_with_defined_u_value.first.fenestrationUFactor
         
-      # unless section.foundation_objs.empty?
+        model_windows = standard.model_find_constructions(model, "Outdoors", "ExteriorWindow")
         
-      # standard.model_find_constructions(model, boundary_condition, type)
+        model_windows.each do |model_window|
+          model_window = model_window.to_Construction.get
+          
+          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
+          insulation_layer = standard.find_and_set_insulation_layer(model_window).name
+          standard.construction_set_glazing_u_value(model_window,u_value,insulation_layer_name=insulation_layer,false,false)
+
+        end
+      else
+        puts "You have no BSXML window elements with defined Insulation R Values. No wall insulation properties will be changed."
+      end
+        
+      ### Roofs
+      roofs_with_defined_insulation = section.roof_objs.select {|model_ext_roof| !model_ext_roof.roofInsulationRValue.nil?}
+      unless roofs_with_defined_insulation.empty?
+
+        r_value = roofs_with_defined_insulation.first.roofInsulationRValue
+        u_value = 1/r_value # converting because Standards function takes u_value
+        
+        model_ext_roofs = standard.model_find_constructions(model, "Outdoors", "ExteriorRoof")
+        
+        model_ext_roofs.each do |model_ext_roof|
+          model_ext_roof = model_ext_roof.to_Construction.get
+          
+          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
+          insulation_layer = standard.find_and_set_insulation_layer(model_ext_roof).name
+          standard.construction_set_u_value(model_ext_roof,u_value,insulation_layer_name=insulation_layer,false,false)
+
+        end
+      else
+        puts "You have no BSXML exterior roof elements with defined Insulation R Values. No roof insulation properties will be changed."
+      end
+      
+      # Skylights
+      # Support to be added in the future
+        
+      ### Foundations
+      foundations_with_defined_r_value = section.foundation_objs.select {|model_ext_foundation| !model_ext_foundation.foundationRValue.nil?}
+      unless foundations_with_defined_r_value.empty?
+
+        r_value = foundations_with_defined_r_value.first.foundationRValue
+        u_value = 1/r_value # converting because Standards function takes u_value
+        
+        model_ext_foundations = standard.model_find_constructions(model, "Ground", "GroundContactFloor")
+        
+        model_ext_foundations.each do |model_ext_foundation|
+          model_ext_foundation = model_ext_foundation.to_Construction.get
+          
+          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty at the moment
+          insulation_layer = standard.find_and_set_insulation_layer(model_ext_foundation).name
+          standard.construction_set_u_value(model_ext_foundation,u_value,insulation_layer_name=insulation_layer,false,false)
+        end
+      else
+        puts "You have no BSXML foundation elements with defined Insulation R Values. No foundation insulation properties will be changed."
+      end
+
     end
 
   end

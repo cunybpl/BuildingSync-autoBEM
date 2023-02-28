@@ -106,6 +106,12 @@ module BuildingSync
           
           total_objs_to_build = 0
           section_envelope_ids.each {|k,v| total_objs_to_build += v.length}
+
+          # Signal that this section has constructions. This will pass it to be used for BuildingSync::EnvelopeSystem.modify
+          if total_objs_to_build > 0
+            sec.has_constructions = true
+          end
+
           puts "Your total objects to build in #{sec.id} are #{total_objs_to_build}"
         
           section_envelope_ids.each_key do |comp|
@@ -115,17 +121,20 @@ module BuildingSync
                 # Building envelope components as BuildingSync Objects & adding to hash of Section
                 built_object = build_envelope_object(bsxmldoc,ns,comp,id)
                 sections_envelope_objs[sec.id][comp].concat([built_object])
-                sec.door_objs = sections_envelope_objs[sec.id]["doors"]
-                sec.wall_objs = sections_envelope_objs[sec.id]["walls"]
-                sec.window_objs = sections_envelope_objs[sec.id]["windows"]
-                sec.roof_objs = sections_envelope_objs[sec.id]["roofs"]
-                sec.foundation_objs = sections_envelope_objs[sec.id]["foundations"]
-                # WILL ADD: passing passing built objects to BuildingSync::Building or BuildingSync::BuildingSection Objects
+                
                 objs_built += 1
                 puts "A total of #{objs_built} built so far."
               end
             end
           end
+
+          # Adding built objects to BuildingSync::BuildingSection Objects
+          sec.door_objs = sections_envelope_objs[sec.id]["doors"]
+          sec.wall_objs = sections_envelope_objs[sec.id]["walls"]
+          sec.window_objs = sections_envelope_objs[sec.id]["windows"]
+          sec.roof_objs = sections_envelope_objs[sec.id]["roofs"]
+          sec.foundation_objs = sections_envelope_objs[sec.id]["foundations"]
+          
         end
         
         # Writing to OSM

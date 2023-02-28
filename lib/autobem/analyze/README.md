@@ -8,6 +8,9 @@ sum_BSXML_dataset_elements(bsxmlFolder)
 all_paths_in_BSXML_dataset(bsxmlFolder,csvwrite)
 ```
 ```ruby
+list_enumerations_in_BSXML_dataset(bsxmlFolder,element_types)
+```
+```ruby
 unique_XPaths_of_two_BSXMLs(xpaths1,xpaths1name,xpaths2,xpaths2name,pathToSave)
 ```
 ```ruby

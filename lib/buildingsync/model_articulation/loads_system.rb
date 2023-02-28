@@ -76,6 +76,7 @@ module BuildingSync
       OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.LoadsSystem.add_internal_loads', 'Adding internal loads')
       count_not_found = 0
       model.getSpaceTypes.each do |space_type|
+        
         ### should probably do something here to set standards type of space type based on reasonable information & not just what .osm says
         ### e.g. the school building we had was saying 'office' rather than school or retail
         data = standard.space_type_get_standards_data(space_type)

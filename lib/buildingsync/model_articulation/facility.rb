@@ -334,20 +334,7 @@ module BuildingSync
       open_studio_system_standard = determine_open_studio_system_standard
 
       OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.create_building_system', "Building Standard with template: #{template}.")
-
-      # add internal loads to space types
-      if add_space_type_loads
-        @load_system.add_internal_loads(model, open_studio_system_standard, template, @site.get_building_sections, remove_objects)
-        new_occupancy_peak = @site.get_peak_occupancy
-        new_occupancy_peak.each do |id, occupancy_peak|
-          floor_area = @site.get_floor_area[id]
-          if occupancy_peak && floor_area && floor_area > 0.0
-            puts "new peak occupancy value found: absolute occupancy: #{occupancy_peak} occupancy per area: #{occupancy_peak.to_f / floor_area.to_f} and area: #{floor_area} m2"
-            @load_system.adjust_occupancy_peak(model, occupancy_peak, floor_area, @site.get_space_types_from_hash(id))
-          end
-        end
-      end
-
+      
       # identify primary building type (used for construction, and ideally HVAC as well)
       building_types = {}
       model.getSpaceTypes.each do |space_type|
@@ -364,6 +351,7 @@ module BuildingSync
         end
       end
       
+      ### This is added since in AutoBEM building type is specified through auc:Section not at auc:Building level
       primary_bldg_type = nil
       if autobem_primary_bldg_type.nil?
         primary_bldg_type = building_types.key(building_types.values.max) # TODO: - this fails if no space types, or maybe just no space types with standards
@@ -371,19 +359,37 @@ module BuildingSync
         primary_bldg_type = autobem_primary_bldg_type 
       end
       lookup_building_type = open_studio_system_standard.model_get_lookup_name(primary_bldg_type) # Used for some lookups in the standards gem
+      
+      model.getBuilding.setStandardsTemplate(template)
       model.getBuilding.setStandardsBuildingType(primary_bldg_type)
 
-      # puts "\n\nGetting building sections in facility"
-      # puts @site.get_building_sections.each do |sec|
-      #   unless sec.wall_objs.empty?
-      #     sec.wall_objs.each {|wall_obj| puts wall_obj.wallInsulationRValue.to_f}
-      #   end
-      # end
+      # add internal loads to space types
+      if add_space_type_loads
+        @load_system.add_internal_loads(model, open_studio_system_standard, template, @site.get_building_sections, remove_objects)
+        new_occupancy_peak = @site.get_peak_occupancy
+        new_occupancy_peak.each do |id, occupancy_peak|
+          floor_area = @site.get_floor_area[id]
+          if occupancy_peak && floor_area && floor_area > 0.0
+            puts "new peak occupancy value found: absolute occupancy: #{occupancy_peak} occupancy per area: #{occupancy_peak.to_f / floor_area.to_f} and area: #{floor_area} m2"
+            @load_system.adjust_occupancy_peak(model, occupancy_peak, floor_area, @site.get_space_types_from_hash(id))
+          end
+        end
+      end
+
+
       envelope_system = nil
       # make construction set and apply to building
       if add_constructions
         envelope_system = EnvelopeSystem.new
         envelope_system.create(model, open_studio_system_standard, primary_bldg_type, lookup_building_type, remove_objects)
+        
+        xml_sections_with_constructions = @site.get_building_sections.select {|sec| sec.has_constructions == true}
+        if xml_sections_with_constructions.empty?
+          puts "\nNo BuildingSync::BuildingSection objects with envelope objects found. The model will only have constructions set by openstudio-standards"
+        else
+          puts "\nThe BuildingSync::BuildingSection to be used for BSXML constructions is #{xml_sections_with_constructions.first.id}"
+          envelope_system.create_bsxml_envelope(model, open_studio_system_standard, xml_sections_with_constructions.first)
+        end
       end
 
       # add elevators (returns ElectricEquipment object)

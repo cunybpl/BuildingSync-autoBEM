@@ -143,7 +143,9 @@ module BuildingSync
       Dir.glob(["#{bsxmlFolder}/*.xml"]) do |bsxmlinst|
         bsxml = help_load_doc(bsxmlinst)
         puts "loaded file #{File.basename(bsxmlinst)}"
+        
         allFileXPaths = []
+        
         # iterate elements
         bsxml.root.each_recursive do |elem|
           elemPath = elem.xpath
@@ -151,8 +153,10 @@ module BuildingSync
           elemPath.gsub!(/\[\d+\]/,"")
           allFileXPaths << elemPath unless elemPath.include? "UserDefinedField"
         end
+        
         allFileXPathsUniq = allFileXPaths.each_with_object(Hash.new(0)) { |xPath,counts| counts[xPath] += 1 }
         puts "The file has #{allFileXPaths.size} XPaths, #{allFileXPathsUniq.keys.size} of them unique."
+        
         allXPaths.concat(allFileXPathsUniq.keys)
         allFileXPathsUniq.each_key do |xp|
           if allXPathsFileCt.keys.include? xp
@@ -185,6 +189,62 @@ module BuildingSync
       return allXPathsUniq.keys
     end
     
+    # List all variations of types that can be value of an array of elements (e.g. occupancy classification)
+    # Will only work for 'leaf' nodes
+    def list_enumerations_in_BSXML_dataset(bsxmlFolder,element_types)
+      # section to open .xml
+
+      elementValuesUniq = {}
+      collected_values = {}
+
+      element_types.each do |element_type|
+        collected_values.merge!({element_type => []})  
+        elementValuesUniq.merge!({element_type => []})
+        
+        Dir.glob(["#{bsxmlFolder}/*.xml"]) do |bsxmlinst|
+          
+          bsxml = help_load_doc(bsxmlinst)
+          
+          puts "loaded file #{File.basename(bsxmlinst)}"
+
+          matching_elements = XPath.match(bsxml.root,"//auc:#{element_type}")
+          matching_elements.each do |elem|
+            if elem.has_elements?
+              puts "Your element has children. Values will not be collected."
+              return
+            else
+              collected_values[element_type] << elem.text
+            end
+          end
+          puts collected_values[element_type]
+        end
+        
+        elementValuesUniq[element_type] = collected_values[element_type].each_with_object(Hash.new(0)) { |elemValue,counts| counts[elemValue] += 1 }
+      end
+      
+      puts elementValuesUniq
+      
+      # writing to .csv
+      col_names = ["ElementType","Value","Occurrences"]
+      
+      csv_name = "#{bsxmlFolder}/#{File.basename(bsxmlFolder)}_BSXML_enumerations_of_elements.csv"
+      
+      csvfile = CSV.open(csv_name, "w")
+
+      for i in 1..elementValuesUniq.length
+        csvfile << col_names
+      end
+
+      elementValuesUniq.each do |element_type,counts_hash|
+        counts_hash.each do |element_value,count|
+          csvfile << [element_type,element_value,count]
+        end
+      end
+
+    end
+    
+
+
     # Find the XPaths that exist in one file but not the other
     # @param xpaths1 [Array] : all xpaths of file (from all_paths_in_BSXML_dataset function)  
     # @param xpaths1name [String] :  desired name to distinguish file
