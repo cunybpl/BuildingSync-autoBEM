@@ -220,7 +220,10 @@ module BuildingSync
       ### Support to be added in the future as they aren't required in Audit Template
         
       ### Foundations
-      foundations_with_defined_r_value = section.foundation_objs.select {|model_ext_foundation| !model_ext_foundation.foundationRValue.nil?}
+      section.foundation_objs.each {|fnd| puts fnd.foundationRValue}
+      section.foundation_objs.each {|fnd| puts fnd.foundationgroundCoupling}
+
+      foundations_with_defined_r_value = section.foundation_objs.select {|model_foundation| !model_foundation.foundationRValue.nil?}
       unless foundations_with_defined_r_value.empty?
 
         r_value = foundations_with_defined_r_value.first.foundationRValue
@@ -229,12 +232,12 @@ module BuildingSync
         model_foundations = standard.model_find_constructions(model, "Ground", "GroundContactFloor")
         
         model_foundations.each do |model_foundation|
-          model_foundation = model_ext_foundation.to_Construction.get
+          model_foundation = model_foundation.to_Construction.get
           model_foundation.setName("BSXML #{foundations_with_defined_r_value.first.id}")
           
           ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty at the moment
-          insulation_layer = standard.find_and_set_insulation_layer(model_ext_foundation).name
-          standard.construction_set_u_value(model_ext_foundation,u_value,insulation_layer_name=insulation_layer,false,false)
+          insulation_layer = standard.find_and_set_insulation_layer(model_foundation).name
+          standard.construction_set_u_value(model_foundation,u_value,insulation_layer_name=insulation_layer,false,false)
           puts "Your foundations are being set to R Value of #{r_value} according to the BSXML object #{foundations_with_defined_r_value.first.id}"
         end
       else

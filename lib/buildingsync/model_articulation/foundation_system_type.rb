@@ -75,7 +75,7 @@ module BuildingSync
                                           end
 
       xmlfoundationRValue = case @foundationgroundCoupling
-                            when "CrawlSpace"
+                            when "Crawlspace"
                               XPath.first(foundation_system,".//#{ns}:FloorRValue")
                             when "SlabOnGrade"
                               XPath.first(foundation_system,".//#{ns}:SlabRValue")
