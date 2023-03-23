@@ -40,6 +40,7 @@ require 'date'
 
 require 'openstudio/extension/core/os_lib_helper_methods'
 require 'openstudio/extension/core/os_lib_model_generation'
+require 'openstudio/extension/core/os_lib_model_simplification'
 
 require 'buildingsync/model_articulation/building_section'
 require 'buildingsync/model_articulation/location_element'
@@ -310,9 +311,48 @@ module BuildingSync
     # create building space types
     # @param model [OpenStudio::Model]
     def create_bldg_space_types(model)
+      
+      bldg_space_types_hash = {}
       @building_sections.each do |bldg_subsec|
-        bldg_subsec.create_space_types(model, @total_floor_area, num_stories, @standard_template, @open_studio_standard)
+        ### Adding this conditional since some auc:Section elements have no occupancy classification
+        unless bldg_subsec.standards_building_type.nil?
+
+          building_type_blended_space_type = bldg_subsec.create_space_types(model, @total_floor_area, num_stories, @standard_template, @open_studio_standard)
+          
+          building_type_blended_space_type.setName("#{bldg_subsec.standards_building_type} blended space type")
+          ### Preparing hash for the final blended space type
+          bldg_space_types_hash[building_type_blended_space_type] = {:floor_area_ratio => bldg_subsec.total_floor_area / @total_floor_area}
+        end
       end
+      
+      ### After creating space types according to building type & blending these in BuildingSync::SpatialElement
+      ### Here the space types will be blended according to their floor area ratio based on info in BSXML
+      
+      building_blended_space_type = nil
+      
+      if bldg_space_types_hash.size == 1
+        
+        building_blended_space_type = bldg_space_types_hash.keys.first
+        puts "Your final building space type will be the single-building #{building_blended_space_type.name}"
+        
+      elsif bldg_space_types_hash.size > 1
+        
+        building_types_string = ""
+        @building_sections.each {|bldg_subsec| building_types_string += "#{bldg_subsec.occupancy_classification} "}
+        
+
+        runner = OpenStudio::Ruleset::OSRunner.new
+        building_blended_space_type = blend_space_types_from_floor_area_ratio(runner, model, bldg_space_types_hash)
+        building_blended_space_type.setName("#{building_types_string} blended space type")
+        puts "Your final building space type will be the multiple-building #{building_blended_space_type.name}"
+
+      else
+        puts "You don't have a final space type to create in blending"
+      end
+
+      model.getBuilding.setSpaceType(building_blended_space_type) unless building_blended_space_type.nil?
+      model.getSpaces.each(&:resetSpaceType)
+
     end
 
     # build zone hash that stores zone lists for buildings and building sections
@@ -387,12 +427,14 @@ module BuildingSync
 
     # set building and system type for building and sections
     def set_bldg_and_system_type_for_building_and_section
-      ### I don't think I'll need this once I got what I obtained in autobem.rb
+      ### I don't think I'll need this once I got what I obtained in autogenerate.rb
       # @building_sections.each(&:set_bldg_and_system_type)
       building_occupancy_classification = ""
       if xget_text('OccupancyClassification').nil?
         @building_sections.each do |sec|
-          building_occupancy_classification = sec.occupancy_classification unless sec.occupancy_classification.nil?
+          unless sec.occupancy_classification.nil? || sec.occupancy_classification == "Other"
+            building_occupancy_classification = sec.occupancy_classification 
+          end
         end
       else
         building_occupancy_classification = xget_text('OccupancyClassification')
@@ -1129,6 +1171,6 @@ module BuildingSync
 
     attr_reader :building_rotation, :name, :length, :width, :num_stories_above_grade, :num_stories_below_grade, :floor_height, :space, :wwr,
                 :occupant_quantity, :number_of_units, :built_year, :year_major_remodel, :building_sections
-    attr_accessor :model
+    attr_accessor :model, :standards_building_type
   end
 end

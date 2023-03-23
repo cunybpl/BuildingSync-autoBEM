@@ -37,6 +37,7 @@
 require "fileutils"
 require 'csv'
 require 'json'
+require 'pp'
 
 module BuildingSync
   module ToolkitForBSXMLs
@@ -191,21 +192,29 @@ module BuildingSync
     
     # List all variations of types that can be value of an array of elements (e.g. occupancy classification)
     # Will only work for 'leaf' nodes
+    # For now this only outputs a hash
     def list_enumerations_in_BSXML_dataset(bsxmlFolder,element_types)
-      # section to open .xml
+
+      elementValuesInFile = {}
 
       elementValuesUniq = {}
       collected_values = {}
 
       element_types.each do |element_type|
+        
+        elementValuesInFile.merge!({element_type => {}}) 
         collected_values.merge!({element_type => []})  
         elementValuesUniq.merge!({element_type => []})
         
         Dir.glob(["#{bsxmlFolder}/*.xml"]) do |bsxmlinst|
           
+          bsxml_inst_name = File.basename(bsxmlinst)
+
+          elementValuesInFile[element_type].merge!({bsxml_inst_name => []})
+
           bsxml = help_load_doc(bsxmlinst)
           
-          puts "loaded file #{File.basename(bsxmlinst)}"
+          puts "loaded file #{bsxml_inst_name}"
 
           matching_elements = XPath.match(bsxml.root,"//auc:#{element_type}")
           matching_elements.each do |elem|
@@ -214,15 +223,23 @@ module BuildingSync
               return
             else
               collected_values[element_type] << elem.text
+              elementValuesInFile[element_type][bsxml_inst_name] << elem.text
             end
           end
-          puts collected_values[element_type]
         end
         
         elementValuesUniq[element_type] = collected_values[element_type].each_with_object(Hash.new(0)) { |elemValue,counts| counts[elemValue] += 1 }
       end
       
-      puts elementValuesUniq
+      # puts elementValuesInFile
+      
+      puts "\n\n\n"
+
+      elementValuesInFile.each do |elemtype,file|
+        pp elementValuesInFile[elemtype].select {|file,values| values.length > 1}
+      end
+      puts "\n\n\n"
+      pp elementValuesUniq
       
       # writing to .csv
       col_names = ["ElementType","Value","Occurrences"]
@@ -242,9 +259,55 @@ module BuildingSync
       end
 
     end
+
+    # Same as above function but specifically for auc:Section elements to read occupancy classifications & floor areas
+    def study_occ_class_and_floor_areas_in_BSXML_dataset(bsxmlFolder)
+
+      # files_Sections = {
+      #   "report.xml" => {
+      #     "OccClass" => "Type",
+      #     "FloorAreas" => {
+      #       "Gross" => 123,
+      #       "Total" => 123
+      #     }
+      #   }
+      # }
+      
+      files_sections = {}
+
+      Dir.glob(["#{bsxmlFolder}/*.xml"]) do |bsxmlinst|
+        
+        bsxml_inst_name = File.basename(bsxmlinst)
+
+        files_sections.merge!({bsxml_inst_name => {"OccClass" => [], "FloorAreas" => {}}})
+
+        bsxml = help_load_doc(bsxmlinst)
+        
+        puts "loaded file #{bsxml_inst_name}"
+
+        section_elements = XPath.match(bsxml.root,"//auc:Section")
+
+        section_elements = section_elements.select {|sec_elem| !XPath.first(sec_elem,".//auc:OccupancyClassification").nil?}
+        
+        section_elements.each do |sec_elem|
+          
+          occupancy_classification = XPath.first(sec_elem,".//auc:OccupancyClassification")
+          files_sections[bsxml_inst_name]["OccClass"] << occupancy_classification.text
+
+          floor_areas_classification_string = occupancy_classification.text + sec_elem.attributes['ID']
+          files_sections[bsxml_inst_name]["FloorAreas"].merge!({floor_areas_classification_string => {}})
+
+          floor_areas = XPath.match(sec_elem,".//auc:FloorArea")
+          floor_areas.each {|flr_area| files_sections[bsxml_inst_name]["FloorAreas"][floor_areas_classification_string].merge!({flr_area[0].text => flr_area[1].text})}
+        end
+      end
+      
+      puts "\n\n\n"
+      pp files_sections
+      puts "\n\n\n"
+
+    end
     
-
-
     # Find the XPaths that exist in one file but not the other
     # @param xpaths1 [Array] : all xpaths of file (from all_paths_in_BSXML_dataset function)  
     # @param xpaths1name [String] :  desired name to distinguish file

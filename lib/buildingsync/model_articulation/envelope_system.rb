@@ -112,7 +112,11 @@ module BuildingSync
     ### with defined (Insulation) R Values
     def create_bsxml_envelope(model,standard,section)
       
+      puts "Now setting constructions thermal properties according to BSXML information.\n"
+      puts "Keep in mind that currently only one envelope object (of a certain category (e.g. wall)) sets properties for the whole building."
+
       ### Doors
+      ### Mar 23 : I realized Audit Template only sets door type when entering info for walls but never more info
       doors_with_defined_u_value = section.door_objs.select {|model_door| !model_door.fenestrationUFactor.nil?}
       unless doors_with_defined_u_value.empty?
 
@@ -126,10 +130,10 @@ module BuildingSync
           ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
           insulation_layer = standard.find_and_set_insulation_layer(model_door).name
           standard.construction_set_glazing_u_value(model_door,u_value,insulation_layer_name=insulation_layer,false,false)
-
+          puts "Your doors are being set to U Value of #{u_value} according to the BSXML object #{doors_with_defined_u_value.first.id}"
         end
       else
-        puts "You have no BSXML door elements with defined Insulation R Values. No wall insulation properties will be changed."
+        puts "You have no BSXML door elements with defined Insulation R Values. No door insulation properties will be changed."
       end
 
       ### Walls
@@ -143,34 +147,50 @@ module BuildingSync
         
         model_ext_walls.each do |model_ext_wall|
           model_ext_wall = model_ext_wall.to_Construction.get
+          model_ext_wall.setName("BSXML #{walls_with_defined_insulation.first.id}")
           
           ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
           insulation_layer = standard.find_and_set_insulation_layer(model_ext_wall).name
           standard.construction_set_u_value(model_ext_wall,u_value,insulation_layer_name=insulation_layer,false,false)
-
+          puts "Your exterior walls are being set to R Value of #{r_value} according to the BSXML object #{walls_with_defined_insulation.first.id}"
         end
       else
         puts "You have no BSXML exterior wall elements with defined Insulation R Values. No wall insulation properties will be changed."
       end
 
       ### Windows
-      windows_with_defined_u_value = section.window_objs.select {|model_window| !model_window.fenestrationUFactor.nil?}
-      unless windows_with_defined_u_value.empty?
+      windows_with_defined_relevant_values = section.window_objs.select {
+        |model_window| 
+        !model_window.fenestrationUFactor.nil? || !model_window.fenestrationSHGC.nil? || !model_window.fenestrationTvis.nil?
+      }
+      unless windows_with_defined_relevant_values.empty?
 
-        u_value = windows_with_defined_u_value.first.fenestrationUFactor
+        u_value = windows_with_defined_relevant_values.first.fenestrationUFactor
+        shgc = windows_with_defined_relevant_values.first.fenestrationSHGC
+        tvis = windows_with_defined_relevant_values.first.fenestrationTvis
         
         model_windows = standard.model_find_constructions(model, "Outdoors", "ExteriorWindow")
         
         model_windows.each do |model_window|
           model_window = model_window.to_Construction.get
+          model_window.setName("BSXML #{windows_with_defined_relevant_values.first.id}")
           
-          ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
-          insulation_layer = standard.find_and_set_insulation_layer(model_window).name
-          standard.construction_set_glazing_u_value(model_window,u_value,insulation_layer_name=insulation_layer,false,false)
+          unless u_value.nil?
+            standard.construction_set_glazing_u_value(model_window,u_value,'ExteriorWall', false, false)
+            puts "Your windows are being set to U Value of #{u_value} according to the BSXML object #{windows_with_defined_relevant_values.first.id}"
+          end
+          unless shgc.nil?
+            standard.construction_set_glazing_shgc(model_window,shgc)
+            puts "Your windows are being set to solar heat gain coefficient value of #{shgc} according to the BSXML object #{windows_with_defined_relevant_values.first.id}"
+          end
+          unless u_value.nil?
+            standard.construction_set_glazing_tvis(model_window,tvis)
+            puts "Your windows are being set to visible transmittance of #{u_value} according to the BSXML object #{windows_with_defined_relevant_values.first.id}"
+          end
 
         end
       else
-        puts "You have no BSXML window elements with defined Insulation R Values. No wall insulation properties will be changed."
+        puts "You have no BSXML window elements with defined U Values. No window U Value properties will be changed."
       end
         
       ### Roofs
@@ -184,18 +204,20 @@ module BuildingSync
         
         model_ext_roofs.each do |model_ext_roof|
           model_ext_roof = model_ext_roof.to_Construction.get
+          model_ext_roof.setName("BSXML #{roofs_with_defined_insulation.first.id}")
           
           ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty
           insulation_layer = standard.find_and_set_insulation_layer(model_ext_roof).name
           standard.construction_set_u_value(model_ext_roof,u_value,insulation_layer_name=insulation_layer,false,false)
+          puts "Your roofs are being set to R Value of #{r_value} according to the BSXML object #{roofs_with_defined_insulation.first.id}"
 
         end
       else
-        puts "You have no BSXML exterior roof elements with defined Insulation R Values. No roof insulation properties will be changed."
+        puts "You have no BSXML roof elements with defined Insulation R Values. No roof insulation properties will be changed."
       end
       
-      # Skylights
-      # Support to be added in the future
+      ### Skylights
+      ### Support to be added in the future as they aren't required in Audit Template
         
       ### Foundations
       foundations_with_defined_r_value = section.foundation_objs.select {|model_ext_foundation| !model_ext_foundation.foundationRValue.nil?}
@@ -204,14 +226,16 @@ module BuildingSync
         r_value = foundations_with_defined_r_value.first.foundationRValue
         u_value = 1/r_value # converting because Standards function takes u_value
         
-        model_ext_foundations = standard.model_find_constructions(model, "Ground", "GroundContactFloor")
+        model_foundations = standard.model_find_constructions(model, "Ground", "GroundContactFloor")
         
-        model_ext_foundations.each do |model_ext_foundation|
-          model_ext_foundation = model_ext_foundation.to_Construction.get
+        model_foundations.each do |model_foundation|
+          model_foundation = model_ext_foundation.to_Construction.get
+          model_foundation.setName("BSXML #{foundations_with_defined_r_value.first.id}")
           
           ### I'm doing this because the usage in Standards.Construction.rb#construction_set_u_value is faulty at the moment
           insulation_layer = standard.find_and_set_insulation_layer(model_ext_foundation).name
           standard.construction_set_u_value(model_ext_foundation,u_value,insulation_layer_name=insulation_layer,false,false)
+          puts "Your foundations are being set to R Value of #{r_value} according to the BSXML object #{foundations_with_defined_r_value.first.id}"
         end
       else
         puts "You have no BSXML foundation elements with defined Insulation R Values. No foundation insulation properties will be changed."

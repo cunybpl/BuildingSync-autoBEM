@@ -55,13 +55,12 @@ module BuildingSync
       model = open_OSM_by_BIN(osmfolderorfile,bin) # @return OpenStudio::Model
       
       # @return REXML::Document
-      bsxmldoc =  case bin
-                  when bin.empty?
-                    help_load_doc(bsxmlfolderorfile)
-                  else
-                    open_bsxml_by_BIN(bsxmlfolderorfile,bin)
-                  end
-      #
+      bsxmldoc = nil 
+      if bin.empty?
+        bsxmldoc = help_load_doc(bsxmlfolderorfile)
+      else
+        bsxmldoc = open_bsxml_by_BIN(bsxmlfolderorfile,bin)
+      end
       
       workflow = BuildingSync::WorkflowMaker.new(bsxmldoc,ns)
       
@@ -77,8 +76,6 @@ module BuildingSync
         # BuildingSync::WorkflowMaker.get_facility -> BuildingSync::Facility.read_xml -> BuildingSync::Site.get_building_sections
         workflow.get_facility.read_xml
         sections = workflow.get_facility.site.get_building_sections
-        
-        
         
         # {section id => {envelope component => [envelope_component objects],…},…}
         sections_envelope_objs = {}
@@ -112,7 +109,7 @@ module BuildingSync
             sec.has_constructions = true
           end
 
-          puts "Your total objects to build in #{sec.id} are #{total_objs_to_build}"
+          puts "Your total envelope objects to build in #{sec.id} are #{total_objs_to_build}"
         
           section_envelope_ids.each_key do |comp|
             unless section_envelope_ids[comp].empty?
@@ -123,7 +120,7 @@ module BuildingSync
                 sections_envelope_objs[sec.id][comp].concat([built_object])
                 
                 objs_built += 1
-                puts "A total of #{objs_built} built so far."
+                puts "A total of #{objs_built} envelope objects built so far."
               end
             end
           end
@@ -137,20 +134,23 @@ module BuildingSync
           
         end
         
-        # Writing to OSM
         sections.each do |sec|
-          unless sec.occupancy_classification.nil?
+          # Skipped since I'm assigning to it the standards_building_type of the dominant bldg type of 
+          next if sec.occupancy_classification == "Other";
+          unless sec.occupancy_classification.nil?  
             sec.set_bldg_and_system_type
-            primary_bldg_type = sec.standards_building_type
-            # This is defined in BuildingSync::Facility
-            # open_studio_system_standard is determined in BuildingSync::Facility.rb:307
-            # open_studio_system_standard = determine_open_studio_system_standard
-            # determine_open_studio_system_standard is a method in BuildingSync::Site which accesses methods in BuildingSync::Building
-            # determine_open_studio_system_standard takes in standard_to_be_used which should be ASHRAE90_1
-            # determine_open_studio_system_standard then needs building_type which needs standards_building_type from BuildingSync::BuildingSection
-            workflow.get_facility.create_building_systems(autobem_inputmodel: model, autobem_primary_bldg_type: primary_bldg_type, add_space_type_loads: true, add_constructions: true, add_swh: true)
           end
         end
+        
+        # Writing to OSM
+        # This is defined in BuildingSync::Facility
+        # open_studio_system_standard is determined in BuildingSync::Facility.rb:307
+        # open_studio_system_standard = determine_open_studio_system_standard
+        # determine_open_studio_system_standard is a method in BuildingSync::Site which accesses methods in BuildingSync::Building
+        # determine_open_studio_system_standard takes in standard_to_be_used which should be ASHRAE90_1
+        # determine_open_studio_system_standard then needs building_type which needs standards_building_type from BuildingSync::BuildingSection
+        workflow.get_facility.create_building_systems(autobem_inputmodel: model, add_space_type_loads: true, add_constructions: true, add_swh: true)
+
       end
 
       # Saving modified OSM
@@ -159,8 +159,9 @@ module BuildingSync
         basename = "AutoBEM_modified_#{bin}"
       else
         basename = "AutoBEM_modified#{File.basename(osmfolderorfile)}"
+        osmfolderorfile = File.dirname(osmfolderorfile)
       end
-      model.save("#{osmfolderorfile}/#{basename}.osm",true)  
+      model.save("#{osmfolderorfile}/#{basename}",true)  
       
     end
     # END MODHASH[ENVELOPE]
@@ -221,11 +222,13 @@ module BuildingSync
         path = OpenStudio::Path.new(osmfolderorfile)
       else
         Dir.glob(["#{osmfolderorfile}/*.osm"]) do |osm|
+          next if File.basename(osm).include? "AutoBEM_modified"
           if File.basename(osm).include? bin
             path = OpenStudio::Path.new(osm)
           end
         end
       end
+      
       translator = OpenStudio::OSVersion::VersionTranslator.new
       return model = translator.loadModel(path).get
     end

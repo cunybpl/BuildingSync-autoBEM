@@ -74,8 +74,8 @@ module BuildingSync
       xmlfenestrationFrameMaterial = XPath.first(fenestration_system,".//#{ns}:FenestrationFrameMaterial")
       
       @fenestrationUFactor = help_get_text_value_as_float(xmlfenestrationUFactor) unless xmlfenestrationUFactor.nil?
-      @fenestrationSolarHeatGainCoefficient = help_get_text_value_as_float(xmlfenestrationSolarHeatGainCoefficient) unless xmlfenestrationSolarHeatGainCoefficient.nil?
-      @fenestrationVisibleTransmittance = help_get_text_value_as_float(xmlfenestrationVisibleTransmittance) unless xmlfenestrationVisibleTransmittance.nil?
+      @fenestrationSHGC = help_get_text_value_as_float(xmlfenestrationSolarHeatGainCoefficient) unless xmlfenestrationSolarHeatGainCoefficient.nil?
+      @fenestrationTvis = help_get_text_value_as_float(xmlfenestrationVisibleTransmittance) unless xmlfenestrationVisibleTransmittance.nil?
       @fenestrationGlassLayers = help_get_text_value(xmlfenestrationGlassLayers) unless xmlfenestrationGlassLayers.nil?
       @fenestrationGasFill = help_get_text_value(xmlfenestrationGasFill) unless xmlfenestrationGasFill.nil?
       @fenestrationGlassType = help_get_text_value(xmlfenestrationGlassType) unless xmlfenestrationGlassType.nil?
@@ -85,6 +85,6 @@ module BuildingSync
 
     end
     
-    attr_reader :id, :fenestrationType, :fenestrationUFactor, :fenestrationSolarHeatGainCoefficient, :fenestrationVisibleTransmittance, :fenestrationGlassLayers, :fenestrationGasFill, :fenestrationGlassType, :fenestrationTightnessFitCondition, :fenestrationOperation, :fenestrationFrameMaterial
+    attr_reader :id, :fenestrationType, :fenestrationUFactor, :fenestrationSHGC, :fenestrationTvis, :fenestrationGlassLayers, :fenestrationGasFill, :fenestrationGlassType, :fenestrationTightnessFitCondition, :fenestrationOperation, :fenestrationFrameMaterial
   end
 end

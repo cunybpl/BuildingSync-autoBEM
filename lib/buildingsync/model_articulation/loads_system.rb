@@ -242,7 +242,8 @@ module BuildingSync
       # help_print_all_schedules("org_schedules-#{space_type.name}.csv", default_schedule_set)
 
       # Convert existing schedules in the model to parametric schedules based on current hours of operation
-      standard.model_setup_parametric_schedules(model)
+      ### Mar 10 : this raised errors and seems unessential so I'm commenting out for now
+      # standard.model_setup_parametric_schedules(model)
 
       # Modify hours of operation, using weekdays values for all weekdays and weekend values for Saturday and Sunday
       standard.schedule_ruleset_set_hours_of_operation(op_sch,
@@ -254,8 +255,8 @@ module BuildingSync
                                                        sun_end_time: sun_end_time)
 
       # Apply new operating hours to parametric schedules to make schedules in model reflect modified hours of operation
-      parametric_schedules = standard.model_apply_parametric_schedules(model, error_on_out_of_order: false)
-      puts "Updated #{parametric_schedules.size} schedules with new hours of operation."
+      # parametric_schedules = standard.model_apply_parametric_schedules(model, error_on_out_of_order: false)
+      # puts "Updated #{parametric_schedules.size} schedules with new hours of operation."
       return true
     end
 

@@ -296,7 +296,7 @@ module BuildingSync
     # @param add_hvac [Boolean]
     # @param add_thermostat [Boolean]
     # @param remove_objects [Boolean]
-    def create_building_systems(autobem_inputmodel: , autobem_primary_bldg_type:,
+    def create_building_systems(autobem_inputmodel: ,
                                 main_output_dir: nil, zone_hash: nil, hvac_delivery_type: 'Forced Air', htg_src: 'NaturalGas', clg_src: 'Electricity',
                                 add_space_type_loads: true, add_constructions: true, add_elevators: false, add_exterior_lights: false,
                                 add_lighting: false,
@@ -335,37 +335,26 @@ module BuildingSync
 
       OpenStudio.logFree(OpenStudio::Info, 'BuildingSync.Facility.create_building_system', "Building Standard with template: #{template}.")
       
-      # identify primary building type (used for construction, and ideally HVAC as well)
-      building_types = {}
-      model.getSpaceTypes.each do |space_type|
-        # populate hash of building types
-        if space_type.standardsBuildingType.is_initialized
-          bldg_type = space_type.standardsBuildingType.get
-          if !building_types.key?(bldg_type)
-            building_types[bldg_type] = space_type.floorArea
-          else
-            building_types[bldg_type] += space_type.floorArea
-          end
-        else
-          OpenStudio.logFree(OpenStudio::Warn, 'BuildingSync.Facility.create_building_system', "Can't identify building type for #{space_type.name}")
-        end
-      end
-      
       ### This is added since in AutoBEM building type is specified through auc:Section not at auc:Building level
-      primary_bldg_type = nil
-      if autobem_primary_bldg_type.nil?
-        primary_bldg_type = building_types.key(building_types.values.max) # TODO: - this fails if no space types, or maybe just no space types with standards
-      else
-        primary_bldg_type = autobem_primary_bldg_type 
-      end
+      bldg_sections_with_tyeps = @site.get_building.building_sections.select {|bldg_sec| bldg_sec.occupancy_classification != "Other"}
+      primary_bldg_section = bldg_sections_with_tyeps.max {|bldg_sec| bldg_sec.total_floor_area }
+      primary_bldg_type = primary_bldg_section.standards_building_type
+
+      ### This sets any building sections with 'Other' as original OccupancyClassification to the standards_building_type of the dominant building section
+      bldg_sections_other = @site.get_building.building_sections.select {|bldg_sec| bldg_sec.occupancy_classification == "Other"}
+      bldg_sections_other.each {|bldg_sec_other| bldg_sec_other.standards_building_type = primary_bldg_section.standards_building_type}
+
       lookup_building_type = open_studio_system_standard.model_get_lookup_name(primary_bldg_type) # Used for some lookups in the standards gem
       
       model.getBuilding.setStandardsTemplate(template)
-      model.getBuilding.setStandardsBuildingType(primary_bldg_type)
+      # model.getBuilding.setStandardsBuildingType(primary_bldg_type)
+
+      ### Adding this to create proper space types 
+      @site.get_building.create_bldg_space_types(model)
 
       # add internal loads to space types
       if add_space_type_loads
-        @load_system.add_internal_loads(model, open_studio_system_standard, template, @site.get_building_sections, remove_objects)
+        # @load_system.add_internal_loads(model, open_studio_system_standard, template, @site.get_building_sections, remove_objects)
         new_occupancy_peak = @site.get_peak_occupancy
         new_occupancy_peak.each do |id, occupancy_peak|
           floor_area = @site.get_floor_area[id]

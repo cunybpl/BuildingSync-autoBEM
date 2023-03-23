@@ -39,7 +39,9 @@
 require 'openstudio'
 require 'fileutils'
 require 'json'
+require 'csv'
 require 'openstudio/extension/core/os_lib_model_generation'
+require 'openstudio/extension/core/os_lib_model_simplification'
 
 require 'buildingsync/helpers/helper'
 require 'buildingsync/helpers/xml_get_set'
@@ -48,6 +50,7 @@ module BuildingSync
   # base class for objects that will configure workflows based on building sync files
   class SpatialElement
     include OsLib_ModelGeneration
+    include OsLib_ModelSimplification
     include BuildingSync::Helper
     include BuildingSync::XmlGetSet
     # initialize SpatialElement class
@@ -254,6 +257,7 @@ module BuildingSync
     def create_space_types(model, total_bldg_floor_area, total_number_floors, standard_template, open_studio_standard)
       # create space types from section type
       # mapping lookup_name name is needed for a few methods
+      ### Mar 10 : commenting out probably inconsequential as I create space types based on auc:Section occ class
       set_bldg_and_system_type(xget_text('OccupancyClassification'), total_bldg_floor_area, total_number_floors, false) if @standards_building_type.nil?
       if open_studio_standard.nil?
         begin
@@ -265,18 +269,51 @@ module BuildingSync
           raise(e)
         end
       end
-
+      
+      ### This is from OSLib_ModelGeneration
       @space_types = get_space_types_from_building_type(@standards_building_type, standard_template, true)
-      puts "BuildingSync.SpatialElement.create_space_types - Space types: #{@space_types} selected for building type: #{@standards_building_type} and standard template: #{standard_template}"
+      
+      ### For some building types, using a single space type from some building types will be helpful
+      ### e.g. Parking & Utility (Space Types) from Courthouse (Building Type)
+      if ["Data center"].include? @occupancy_classification
+        # Make the only space type a data center
+        @space_types.select! {|space_type,hash| space_type == "OfficeLarge Main Data Center"}
+        @space_types["OfficeLarge Main Data Center"][:ratio] = 1
+      elsif ["Parking"].include? @occupancy_classification
+        # Make the only space type parking
+        @space_types.select! {|space_type,hash| space_type == "Courthouse - Parking"}
+        @space_types["Courthouse - Parking"][:ratio] = 1
+      elsif ["Utility"].include? @occupancy_classification
+        # Make the only space type utility
+        @space_types.select! {|space_type,hash| space_type == "Courthouse - Utility"}
+        @space_types["Courthouse - Utility"][:ratio] = 1
+      elsif ["Laboratory"].include? @occupancy_classification
+        # Make the only space type laboratory
+        @space_types.select! {|space_type,hash| space_type == "Lab"}
+        @space_types["Lab"][:ratio] = 1
+      elsif @occupancy_classification.include? "Assembly"
+        # Make the only space type a Courtroom
+        @space_types.select! {|space_type,hash| space_type == "Courthouse - Courtroom"}
+        @space_types["Courthouse - Courtroom"][:ratio] = 1
+      end
+      
+      puts "BuildingSync.SpatialElement.create_space_types - Space types: #{@space_types} selected for section type: #{@occupancy_classification} of standards_building_type #{@standards_building_type} and standard template: #{standard_template}"
       # create space_type_map from array
       sum_of_ratios = 0.0
 
       @space_types.each do |space_type_name, hash|
+
         # create space type
         space_type = OpenStudio::Model::SpaceType.new(model)
         space_type.setStandardsBuildingType(@standards_building_type)
         space_type.setStandardsSpaceType(space_type_name)
-        space_type.setName("#{@standards_building_type} #{space_type_name}")
+        ### Added OccupancyClassification to name since this will distinguish the parent auc:Section
+        space_type.setName("#{@occupancy_classification} #{@standards_building_type} #{space_type_name}") 
+        
+        ### Adding these here to bypass BuildingSync::LoadsSystem so to rely on space type blending
+        ### Will probably restructure the BuildingSync::LoadsSystem.add_internal_loads function??
+        ### Will mostly do the BSXML occupancy & schedules manipulation there
+        open_studio_standard.space_type_apply_internal_loads(space_type, true, true, true, true, true, false)
 
         # set color
         test = open_studio_standard.space_type_apply_rendering_color(space_type) # this uses openstudio-standards
@@ -287,18 +324,41 @@ module BuildingSync
         # add to sum_of_ratios counter for adjustment multiplier
         sum_of_ratios += hash[:ratio]
       end
-
-      # store multiplier needed to adjust sum of ratios to equal 1.0
-      @ratio_adjustment_multiplier = 1.0 / sum_of_ratios
-
-      @space_types_floor_area = {}
-      @space_types.each do |space_type_name, hash|
-        ratio_of_bldg_total = hash[:ratio] * @ratio_adjustment_multiplier * @fraction_area
-        final_floor_area = ratio_of_bldg_total * total_bldg_floor_area # I think I can just pass ratio but passing in area is cleaner
-        @space_types_floor_area[hash[:space_type]] = { floor_area: final_floor_area }
+      
+      ### This will blend all space types of the same building type i.e. those just created
+      space_type_blend_hash = {}
+      @space_types.each do |space_type, hash|
+        space_type_blend_hash.merge!({hash[:space_type] => {:floor_area_ratio => hash[:ratio]}})
       end
-      puts 'BuildingSync.SpatialElement.create_space_types'
-      return @space_types_floor_area
+
+      runner = OpenStudio::Ruleset::OSRunner.new ### This is necessary just to pass to method below
+
+      ### This is from OSLib_ModelSimplification
+      blended_subsection_space_type = blend_space_types_from_floor_area_ratio(runner, model, space_type_blend_hash)
+      ### This is from OSLib_ModelGeneration
+      open_studio_standard.space_type_apply_internal_load_schedules(blended_subsection_space_type, true, true, true, true, true, true, false)
+
+      return blended_subsection_space_type
+      
+      ### Commenting out whole bext part since I'm taking into account other building types so fraction areas will not make sense here
+
+      # # store multiplier needed to adjust sum of ratios to equal 1.0
+      # @ratio_adjustment_multiplier = 1.0 / sum_of_ratios
+
+      # @space_types_floor_area = {}
+      # @space_types.each do |space_type_name, hash|
+        
+      #   puts hash[:ratio]
+      #   puts @ratio_adjustment_multiplier
+      #   puts @fraction_area ### gives nil
+
+      #   ratio_of_bldg_total = hash[:ratio] * @ratio_adjustment_multiplier * @fraction_area
+      #   final_floor_area = ratio_of_bldg_total * total_bldg_floor_area # I think I can just pass ratio but passing in area is cleaner
+      #   @space_types_floor_area[hash[:space_type]] = { floor_area: final_floor_area }
+      # end
+      # puts 'BuildingSync.SpatialElement.create_space_types'
+      # return @space_types_floor_area
+
     end
 
     # add user defined field to xml file
@@ -336,6 +396,7 @@ module BuildingSync
       @base_xml.add_element(@user_defined_fields)
     end
 
-    attr_reader :total_floor_area, :standards_building_type, :system_type, :space_types
+    attr_reader :total_floor_area, :system_type, :space_types
+    attr_accessor :standards_building_type
   end
 end
